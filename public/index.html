@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Security Monitor</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    margin: 0;
+    padding: 2rem;
+  }
+  h1 { color: #58a6ff; }
+  .estado-general {
+    display: inline-block;
+    padding: 0.5rem 1.5rem;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+  }
+  .estado-OK { background: #238636; color: white; }
+  .estado-ADVERTENCIA { background: #9e6a03; color: white; }
+  .estado-CRITICO { background: #da3633; color: white; }
+
+  .seccion {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin-bottom: 1.5rem;
+  }
+  .seccion h2 { margin-top: 0; color: #58a6ff; font-size: 1.1rem; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #30363d; font-size: 0.9rem; }
+  th { color: #8b949e; }
+
+  .alerta {
+    padding: 0.7rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+  }
+  .severidad-info { background: #1f2937; border-left: 4px solid #58a6ff; }
+  .severidad-alta { background: #3a2e0f; border-left: 4px solid #d29922; }
+  .severidad-critica { background: #3a1414; border-left: 4px solid #f85149; }
+
+  .badge { padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.8rem; }
+  .badge-active { background: #238636; }
+  .badge-inactive { background: #da3633; }
+
+  #cargando { color: #8b949e; }
+</style>
+</head>
+<body>
+
+<h1>🛡️ Security Monitor</h1>
+<div id="cargando">Cargando datos...</div>
+<div id="contenido" style="display:none">
+
+  <div id="estadoGeneral" class="estado-general"></div>
+
+  <div class="seccion">
+    <h2>⚠️ Alertas</h2>
+    <div id="listaAlertas"></div>
+  </div>
+
+  <div class="seccion">
+    <h2>🔌 Puertos escuchando</h2>
+    <table>
+      <thead><tr><th>Puerto</th><th>Dirección</th><th>Proceso</th></tr></thead>
+      <tbody id="tablaPuertos"></tbody>
+    </table>
+  </div>
+
+  <div class="seccion">
+    <h2>⚙️ Servicios</h2>
+    <table>
+      <thead><tr><th>Servicio</th><th>Estado</th></tr></thead>
+      <tbody id="tablaServicios"></tbody>
+    </table>
+  </div>
+
+  <div class="seccion">
+    <h2>🔐 Intentos de autenticación</h2>
+    <table>
+      <thead><tr><th>IP</th><th>Fallidos</th><th>Exitosos</th><th>Usuarios probados</th></tr></thead>
+      <tbody id="tablaLogs"></tbody>
+    </table>
+  </div>
+
+  <p style="color:#8b949e; font-size:0.8rem">Última actualización: <span id="fechaActualizacion"></span></p>
+</div>
+
+<script>
+async function cargarReporte() {
+  try {
+    const respuesta = await fetch('/api/reporte');
+    const datos = await respuesta.json();
+
+    document.getElementById('cargando').style.display = 'none';
+    document.getElementById('contenido').style.display = 'block';
+
+    // Estado general
+    const estadoEl = document.getElementById('estadoGeneral');
+    estadoEl.textContent = 'Estado del sistema: ' + datos.estadoGeneral;
+    estadoEl.className = 'estado-general estado-' + datos.estadoGeneral;
+
+    // Alertas
+    const listaAlertas = document.getElementById('listaAlertas');
+    if (datos.alertas.length === 0) {
+      listaAlertas.innerHTML = '<p>No hay alertas activas.</p>';
+    } else {
+      listaAlertas.innerHTML = datos.alertas.map(a =>
+        `<div class="alerta severidad-${a.severidad}"><strong>[${a.tipo}]</strong> ${a.mensaje}</div>`
+      ).join('');
+    }
+
+    // Puertos
+    document.getElementById('tablaPuertos').innerHTML = datos.puertos.map(p =>
+      `<tr><td>${p.puerto}</td><td>${p.direccionLocal}</td><td>${p.proceso}</td></tr>`
+    ).join('');
+
+    // Servicios
+    document.getElementById('tablaServicios').innerHTML = datos.servicios.map(s =>
+      `<tr><td>${s.servicio}</td><td><span class="badge badge-${s.estado === 'active' ? 'active' : 'inactive'}">${s.estado}</span></td></tr>`
+    ).join('');
+
+    // Logs
+    document.getElementById('tablaLogs').innerHTML = datos.logs.map(l =>
+      `<tr><td>${l.ip}${l.sospechoso ? ' ⚠️' : ''}</td><td>${l.fallidos}</td><td>${l.exitosos}</td><td>${l.usuariosProbados.join(', ')}</td></tr>`
+    ).join('');
+
+    document.getElementById('fechaActualizacion').textContent = new Date(datos.fecha).toLocaleString();
+
+  } catch (error) {
+    document.getElementById('cargando').textContent = 'Error cargando el reporte: ' + error.message;
+  }
+}
+
+cargarReporte();
+// Refresca automáticamente cada 15 segundos
+setInterval(cargarReporte, 15000);
+</script>
+
+</body>
+</html>
